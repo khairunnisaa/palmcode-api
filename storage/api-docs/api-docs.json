@@ -1031,7 +1031,68 @@
     },
     "components": {
         "schemas": {
-            "Booking": {},
+            "Booking": {
+                "title": "Booking",
+                "description": "Booking model",
+                "required": [
+                    "member_id",
+                    "country_id",
+                    "surfing_experience",
+                    "visit_date",
+                    "desired_board"
+                ],
+                "properties": {
+                    "id": {
+                        "description": "The unique identifier for the booking",
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "member_id": {
+                        "description": "The ID of the member associated with the booking",
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "country_id": {
+                        "description": "The ID of the country associated with the booking",
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "id_verification_id": {
+                        "description": "The ID of the ID verification associated with the booking",
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "surfing_experience": {
+                        "description": "The level of surfing experience of the member",
+                        "type": "string",
+                        "example": "Intermediate"
+                    },
+                    "visit_date": {
+                        "description": "The date of the visit",
+                        "type": "string",
+                        "format": "date",
+                        "example": "2024-05-15"
+                    },
+                    "desired_board": {
+                        "description": "The desired type of surfboard for the visit",
+                        "type": "string",
+                        "example": "Shortboard"
+                    },
+                    "created_at": {
+                        "description": "The date and time when the booking was created",
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2024-05-15 10:00:00"
+                    },
+                    "updated_at": {
+                        "description": "The date and time when the booking was last updated",
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2024-05-15 10:30:00"
+                    }
+                },
+                "type": "object"
+            },
             "Country": {},
             "IdVerification": {},
             "Member": {}
