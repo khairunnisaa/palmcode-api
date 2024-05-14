@@ -32,15 +32,10 @@ class BookingController extends BaseController
     {
         try {
             // Get pagination and sorting parameters from the request
-            $perPage = $request->query('perPage');
-            $sortBy = $request->query('sortBy');
-            $page = $request->query('page', 1); // Get the page parameter, default to page 1 if not provided
+            $perPage = $request->query('perPage', 10); // Default to 10 if not provided
+            $sortBy = $request->query('sortBy', 'id'); // Default to 'id' if not provided
             $sortDirection = $request->query('sortDirection', 'asc'); // Default to 'asc' if not provided
-
-            // Ensure that $perPage is not null
-            if (!$perPage) {
-                $perPage = 10; // Set a default value if $perPage is not provided
-            }
+            $page = $request->query('page', 1); // Default to page 1 if not provided
 
             // Retrieve bookings from the database query with eager loading of member and country relationships
             $bookingsQuery = Booking::with(['member', 'country']);
@@ -50,10 +45,28 @@ class BookingController extends BaseController
                 $bookingsQuery->orderBy($sortBy, $sortDirection);
             }
 
-            // Pass the query builder instance to the sendResponseIndex method
-            return $this->sendResponseIndex($bookingsQuery, 'Bookings retrieved successfully', $perPage, $sortBy, $sortDirection);
+            // Paginate the query results
+            $bookings = $bookingsQuery->paginate($perPage, ['*'], 'page', $page);
+
+            // Construct the response data with related ID verifications
+            $responseData = $bookings->map(function($booking) {
+                $idVerification = IdVerification::where('member_id', $booking->member_id)->first();
+
+                return [
+                    'id' => $booking->id,
+                    'member' => $booking->member,
+                    'country' => $booking->country,
+                    'id_verification' => $idVerification,
+                    'surfing_experience' => $booking->surfing_experience,
+                    'visit_date' => $booking->visit_date,
+                    'desired_board' => $booking->desired_board,
+                ];
+            });
+
+            // Return paginated response
+            return $this->sendResponse($responseData, 'Bookings retrieved successfully', $perPage, $sortBy, $sortDirection);
         } catch (\Exception $e) {
-            // Handle the exception
+            // Handle any exceptions
             return $this->sendError('Error retrieving bookings: ' . $e->getMessage());
         }
     }
@@ -177,58 +190,52 @@ class BookingController extends BaseController
         $validator = Validator::make($request->all(), [
             'member_id' => 'required|exists:members,id',
             'country_id' => 'required|exists:countries,id',
-            'id_verification_id' => 'nullable|exists:id_verifications,id',
             'surfing_experience' => 'required|integer|min:1|max:10',
             'visit_date' => 'required|date',
             'desired_board' => 'required|in:longboard,funboard,shortboard,fishboard,gunboard',
             'id_card_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // Validate image file
-            'file_name' => ['string', function ($attribute, $value, $fail) use ($request) {
-                // Check if the uploaded file is an image
-                $extension = $request->file('id_card_image')->getClientOriginalExtension();
-                if (!in_array(strtolower($extension), ['jpg', 'jpeg', 'png', 'gif'])) {
-                    $fail('The ' . $attribute . ' must be a file with image format (jpg, jpeg, png, gif).');
-                }
-            }],
         ]);
 
         // If validation fails, return error response
         if ($validator->fails()) {
             return $this->sendError('Validation Error.', $validator->errors());
         }
+
         try {
             // Save the id verification record
             $idVerification = IdVerification::create([
                 'member_id' => $request->member_id,
                 'file_name' => $request->file('id_card_image')->getClientOriginalName(),
-                'link_url_path' => $request->file('id_card_image')->getClientOriginalName()
+                'link_url_path' => $request->file('id_card_image')->store('id_card_images', 'public'), // Store the image file
             ]);
 
-            try {
-                // Attempt to create the Booking record
-                $booking = Booking::create([
-                    'member_id' => $request->member_id,
-                    'country_id' => $request->country_id,
-                    'id_verification_id' => $idVerification->id,
-                    'surfing_experience' => $request->surfing_experience,
-                    'visit_date' => $request->visit_date,
-                    'desired_board' => $request->desired_board,
-                ]);
-            } catch (\Exception $e) {
-                return $this->sendError('Booking creation failed.', $e->getMessage());
-            }
+            // Attempt to create the Booking record
+            $booking = Booking::create([
+                'member_id' => $request->member_id,
+                'country_id' => $request->country_id,
+                'id_verification_id' => $idVerification->id,
+                'surfing_experience' => $request->surfing_experience,
+                'visit_date' => $request->visit_date,
+                'desired_board' => $request->desired_board,
+            ]);
+
             // Retrieve the associated member and country records
             $member = Member::findOrFail($request->member_id);
             $country = Country::findOrFail($request->country_id);
 
-            // Associate the booking with the member and country
-            $booking->member()->associate($member);
-            $booking->country()->associate($country);
-
-            // Save the associations
-            $booking->save();
+            // Construct the response data
+            $responseData = [
+                'id' => $booking->id,
+                'member' => $member,
+                'country' => $country,
+                'id_verification' => $idVerification,
+                'surfing_experience' => $booking->surfing_experience,
+                'visit_date' => $booking->visit_date,
+                'desired_board' => $booking->desired_board,
+            ];
 
             // Return success response with the created booking data
-            return $this->sendResponse(new BookingResource($booking), 'Booking created successfully.');
+            return $this->sendResponse($responseData, 'Booking created successfully.');
         } catch (\Exception $e) {
             // Return error response if any exception occurs
             return $this->sendError('Booking creation failed.', $e->getMessage());
