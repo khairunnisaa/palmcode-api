@@ -239,7 +239,7 @@ class BookingController extends BaseController
         } catch (\Exception $e) {
             // Return error response if any exception occurs
             return $this->sendError('Booking creation failed.', $e->getMessage());
-        }
+            }
     }
 
     /**
