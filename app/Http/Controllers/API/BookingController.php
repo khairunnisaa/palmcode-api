@@ -92,13 +92,40 @@ class BookingController extends BaseController
 
     public function show($id): JsonResponse
     {
-         $booking = Booking::find($id);
+        try {
+            // Retrieve the booking
+            $booking = Booking::find($id);
 
-                if (is_null($booking)) {
-                    return $this->sendError('Booking not found.');
-                }
+            if (is_null($booking)) {
+                return $this->sendError('Booking not found.');
+            }
 
-                return $this->sendResponse(new BookingResource($booking), 'Booking retrieved successfully.');
+            // Retrieve the related member
+            $member = Member::find($booking->member_id);
+
+            // Retrieve the related country
+            $country = Country::find($booking->country_id);
+
+            // Retrieve the related ID verification using the member_id
+            $idVerification = IdVerification::where('member_id', $member->id)->first();
+
+            // Construct the response data
+            $responseData = [
+                'id' => $booking->id,
+                'member' => $booking->member,
+                'country' => $booking->country,
+                'id_verification' => $idVerification,
+                'surfing_experience' => $booking->surfing_experience,
+                'visit_date' => $booking->visit_date,
+                'desired_board' => $booking->desired_board,
+            ];
+
+
+            return $this->sendResponse($responseData, 'Booking retrieved successfully.');
+        } catch (\Exception $e) {
+            // Handle any exceptions
+            return $this->sendError('Error retrieving booking: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -162,7 +189,6 @@ class BookingController extends BaseController
                     $fail('The ' . $attribute . ' must be a file with image format (jpg, jpeg, png, gif).');
                 }
             }],
-            'link_url_path' => 'required|string',
         ]);
 
         // If validation fails, return error response
@@ -174,7 +200,7 @@ class BookingController extends BaseController
             $idVerification = IdVerification::create([
                 'member_id' => $request->member_id,
                 'file_name' => $request->file('id_card_image')->getClientOriginalName(),
-                'link_url_path' => $request->link_url_path
+                'link_url_path' => $request->file('id_card_image')->getClientOriginalName()
             ]);
 
             try {
